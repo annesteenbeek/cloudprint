@@ -324,6 +324,7 @@ class CloudPrintProxy(object):
                    "These are the prints for the month: \n \n"
                 )
         message += printTable
+        print("Trying to send: \n" + message)
         try:
            smtpObj = smtplib.SMTP('localhost')
            smtpObj.sendmail(sender, receivers, message)
