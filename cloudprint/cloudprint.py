@@ -37,7 +37,15 @@ import tempfile
 import time
 import uuid
 
-from cloudprint import xmpp
+import smtplib
+from dateutil.relativedelta import relativedelta
+
+from tabulate import tabulate
+
+try:
+    from cloudprint import xmpp
+except Exception:
+    import xmpp
 
 
 XMPP_SERVER_HOST = 'talk.google.com'
@@ -277,7 +285,55 @@ class CloudPrintProxy(object):
         ).raise_for_status()
         LOGGER.debug('Updated Printer ' + name)
 
+    def print_jobs(self, printer_id):
+        pricePerPrint = 0.01
+        docs = self.auth.session.post(
+            PRINT_CLOUD_URL + 'jobs',
+            {
+                'output': 'json',
+                'printerid': printer_id,
+            },
+        ).json()
+        jobDict = {}
+        for job in docs['jobs']:
+            if job["status"] == "DONE": # check if done
+                user = job['ownerId']
+                pages = job['numberOfPages']
+                newPages = 0
+                printTime = datetime.datetime.fromtimestamp(int(job['updateTime'])/1000)
+                if  printTime < datetime.datetime.now()-relativedelta(months=+0):
+                    newPages = pages
+                if not user in jobDict:
+                    jobDict[user] = [pages, newPages, newPages * pricePerPrint]
+                else:
+                    tmpDict = jobDict[user]
+                    jobDict[user] = [tmpDict[0] + pages, tmpDict[1] + newPages,
+                                     (tmpDict[1] + newPages) * pricePerPrint]
+        userList = []
+        for key, value in jobDict.iteritems():
+            value.insert(0, key)
+            userList.append(value)
+        printTable = tabulate(userList, headers=["User", "Total pages", "New pages", "Price"])
+
+        sender = 'anne@annesteenbeek.student.utwente.nl'
+        receivers = 'annesteenbeek@gmail.com'
+
+        message = ("From: From PrintServer <" + sender + " >\n"
+                    "To: To Person <" + receivers + ">\n"
+                    "Subject: Prints this month\n \n"
+                   "These are the prints for the month: \n \n"
+                )
+        message += printTable
+        try:
+           smtpObj = smtplib.SMTP('localhost')
+           smtpObj.sendmail(sender, receivers, message)
+           print("Successfully sent email")
+        except Exception:
+           print("Error: unable to send email")
+
+
     def get_jobs(self, printer_id):
+        self.print_jobs(printer_id)
         docs = self.auth.session.post(
             PRINT_CLOUD_URL + 'fetch',
             {
@@ -285,7 +341,6 @@ class CloudPrintProxy(object):
                 'printerid': printer_id,
             },
         ).json()
-
         if 'jobs' not in docs:
             return []
         else:
@@ -441,7 +496,6 @@ def process_jobs(cups_connection, cpp):
 
     while True:
         process_jobs_once(cups_connection, cpp, xmpp_conn)
-
 
 def process_jobs_once(cups_connection, cpp, xmpp_conn):
     printers = cpp.get_printers()
