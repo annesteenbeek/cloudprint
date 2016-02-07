@@ -295,10 +295,12 @@ class CloudPrintProxy(object):
             },
         ).json()
         jobDict = {}
+        printerName = ""
         for job in docs['jobs']:
             if job["status"] == "DONE": # check if done
                 user = job['ownerId']
                 pages = job['numberOfPages']
+                printerName = job['printerName']
                 newPages = 0
                 printTime = datetime.datetime.fromtimestamp(int(job['updateTime'])/1000)
                 if  printTime < datetime.datetime.now()-relativedelta(months=+0):
@@ -320,7 +322,7 @@ class CloudPrintProxy(object):
 
         message = ("From: From PrintServer <" + sender + " >\n"
                     "To: To Person <" + receivers + ">\n"
-                    "Subject: Prints this month\n \n"
+                    "Subject: Prints this month for printer '" + printerName + "'\n \n"
                    "These are the prints for the month: \n \n"
                 )
         message += printTable
