@@ -528,9 +528,10 @@ def manage_mail_logs(cpp):
                         days = 28
                     else:
                         days = int(opt['days'])
-                    if (datetime.datetime.today().day is days) and not sendToday:
-                        printer.send_mail(opt['price'], opt['sender'], opt['receivers'], opt['custom'])
-                        sendToday = True
+                    if datetime.datetime.today().day is days:
+                        if not sendToday:
+                            printer.send_mail(opt['price'], opt['sender'], opt['receivers'], opt['custom'])
+                            sendToday = True
                     else:
                         sendToday = False
         except Exception:
