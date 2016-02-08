@@ -515,6 +515,7 @@ def manage_mail_logs(cpp):
     # if printer to track matches printer name:
     #   if day of month to print matches, send mail
     conf = ConfigParser.ConfigParser()
+    sendToday = False
     while True:
         conf.read("printers.conf")
         printers = cpp.get_printers() # use all registered printers
@@ -527,8 +528,11 @@ def manage_mail_logs(cpp):
                         days = 28
                     else:
                         days = int(opt['days'])
-                    if (datetime.datetime.today().day is days):
+                    if (datetime.datetime.today().day is days) and not sendToday:
                         printer.send_mail(opt['price'], opt['sender'], opt['receivers'], opt['custom'])
+                        sendToday = True
+                    else:
+                        sendToday = False
         except Exception:
             LOGGER.exception("oh snap, email exception")
         time.sleep(SLEEP_TIME)
