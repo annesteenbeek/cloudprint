@@ -39,8 +39,10 @@ import uuid
 
 import ConfigParser
 from threading import Thread
-import smtplib
 from dateutil.relativedelta import relativedelta
+
+from email.mime.text import MIMEText
+from subprocess import Popen, PIPE
 
 from tabulate import tabulate
 
@@ -322,19 +324,20 @@ class CloudPrintProxy(object):
         if receivers == []: # default to user emails
             receivers = [row[0] for row in userList]
         else:
-            print(receivers)
             receivers = receivers.split(',')
-        message = ("From: From PrintServer <" + sender + " >\n"
-                    "To: To Person <" + ", ".join(receivers) + ">\n"
-                    "Subject: Prints this month for printer '" + printerName + "'\n \n"
-                    + custom + "\n \n"
+        body = ( custom + "\n \n"
                    "These are the prints for the month: \n \n"
                 )
-        message += printTable
-        print("Trying to send: \n" + message)
+        body += printTable
+
+        msg = MIMEText(body)
+        msg["From"] = sender
+        msg["To"] = ", ".join(receivers)
+        msg["Subject"] =  "Prints this month for printer '" + printerName + "'"
+        print("Trying to send: \n" + body + " to: " + ", ".join(receivers))
         try:
-           smtpObj = smtplib.SMTP('localhost')
-           smtpObj.sendmail(sender, receivers, message)
+           p = Popen(["/usr/sbin/sendmail", "-t", "-oi"], stdin=PIPE)
+           p.communicate(msg.as_string())
            print("Successfully sent email")
         except Exception:
            print("Error: unable to send email")
