@@ -29,6 +29,8 @@ import logging
 import logging.handlers
 import os
 import re
+import smtplib
+
 import requests
 import shutil
 import stat
@@ -290,7 +292,7 @@ class CloudPrintProxy(object):
         LOGGER.debug('Updated Printer ' + name)
 
     def email_print_log(self, printer_id, printerName, price, sender, receivers, custom):
-        #TODO store logs (maybe sqlite)
+        #TODO store logs (maybe sqlite) and webinterface with django
         #TODO perform logging in seperate script (no more threading and use cron)
 
         docs = self.auth.session.post(
@@ -325,20 +327,22 @@ class CloudPrintProxy(object):
             receivers = [row[0] for row in userList]
         else:
             receivers = receivers.split(',')
-        body = ( custom + "\n \n"
+        message = ("From: From PrintServer <" + sender + " >\n"
+                    "To: To Person <" + ", ".join(receivers) + ">\n"
+                    "Subject: Prints this month for printer '" + printerName + "'\n \n"
+                    + custom + "\n \n"
                    "These are the prints for the month: \n \n"
                 )
-        body += printTable
-
-        msg = MIMEText(body)
-        msg["From"] = sender
-        msg["To"] = ", ".join(receivers)
-        msg["Subject"] =  "Prints this month for printer '" + printerName + "'"
-        print("Trying to send: \n" + body + " to: " + ", ".join(receivers))
+        message += printTable
+        print("Trying to send: \n" + message)
         try:
-           p = Popen(["/usr/sbin/sendmail", "-t", "-oi"], stdin=PIPE)
-           p.communicate(msg.as_string())
+           smtpObj = smtplib.SMTP('localhost')
+           smtpObj.sendmail(sender, receivers, message)
            print("Successfully sent email")
+           # print to file
+           file = open("logs/Printlog_" + time.strftime("%d/%m/%Y") + ".txt")
+           file.write(message)
+           file.close()
         except Exception:
            print("Error: unable to send email")
 
@@ -601,7 +605,7 @@ def parse_args():
         help='enable daemon mode (requires the daemon module)',
     )
     parser.add_argument(
-        '-l',
+            '-l',
         dest='logout',
         action='store_true',
         help='logout of the google account',
