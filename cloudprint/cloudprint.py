@@ -334,14 +334,14 @@ class CloudPrintProxy(object):
                    "These are the prints for the month: \n \n"
                 )
         message += printTable
-        print("Trying to send: \n" + message)
+        LOGGER.info("Trying to send: \n" + message)
         try:
            smtpObj = smtplib.SMTP('localhost')
            smtpObj.sendmail(sender, receivers, message)
-           print("Successfully sent email")
+           LOGGER.info("Successfully sent email")
         except Exception:
-           print("Error: unable to send email")
-        print("Writing to file")
+           LOGGER.info("Error: unable to send email")
+        LOGGER.info("Writing log to file")
         # print to file
         filename = "logs/printlog_" + time.strftime("%d-%m-%Y") + ".txt"
         dir = os.path.dirname(filename)
