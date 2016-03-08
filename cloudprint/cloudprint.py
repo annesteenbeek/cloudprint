@@ -80,7 +80,7 @@ RETRIES = 1
 num_retries = 0
 
 LOGGER = logging.getLogger('cloudprint')
-LOGGER.setLevel(logging.INFO)
+LOGGER.basicConfig(filename="LOGGER.log", level=LOGGER.DEBUG)
 
 CLIENT_ID = ('607830223128-rqenc3ekjln2qi4m4ntudskhnsqn82gn'
              '.apps.googleusercontent.com')
