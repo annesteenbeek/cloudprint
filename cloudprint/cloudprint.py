@@ -327,8 +327,8 @@ class CloudPrintProxy(object):
             receivers = [row[0] for row in userList]
         else:
             receivers = receivers.split(',')
-        message = ("From: From PrintServer <" + sender + " >\n"
-                    "To: To Person <" + ", ".join(receivers) + ">\n"
+        message = ("From: PrintServer <" + sender + " >\n"
+                    "To: <" + ", ".join(receivers) + ">\n"
                     "Subject: Prints this month for printer '" + printerName + "'\n \n"
                     + custom + "\n \n"
                    "These are the prints for the month: \n \n"
