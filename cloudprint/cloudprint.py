@@ -339,12 +339,17 @@ class CloudPrintProxy(object):
            smtpObj = smtplib.SMTP('localhost')
            smtpObj.sendmail(sender, receivers, message)
            print("Successfully sent email")
-           # print to file
-           file = open("logs/Printlog_" + time.strftime("%d/%m/%Y") + ".txt")
-           file.write(message)
-           file.close()
         except Exception:
            print("Error: unable to send email")
+        print("Writing to file")
+        # print to file
+        filename = "logs/printlog_" + time.strftime("%d-%m-%Y") + ".txt"
+        dir = os.path.dirname(filename)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        file = open(filename, 'w')
+        file.write(message)
+        file.close()
 
 
     def get_jobs(self, printer_id):
