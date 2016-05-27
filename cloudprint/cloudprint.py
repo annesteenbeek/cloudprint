@@ -492,13 +492,13 @@ def process_job(cups_connection, cpp, printer, job):
             del options['request']
 
         options = dict((str(k), str(v)) for k, v in list(options.items()))
-
+        docTitle = "["+job['ownerId']+"] " + job['title'][:255]
         # Cap the title length to 255, or cups will complain about invalid
         # job-name
         cups_connection.printFile(
             printer.name,
             tmp.name,
-            job['title'][:255],
+            docTitle,
             options,
         )
         os.unlink(tmp.name)
