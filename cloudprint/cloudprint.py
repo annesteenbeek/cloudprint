@@ -67,7 +67,6 @@ KEEPALIVE = 600.0
 RETRIES = 1
 num_retries = 0
 
-logging.basicConfig(filename='./cloudprintLOGGING.log')
 LOGGER = logging.getLogger('cloudprint')
 LOGGER.setLevel(logging.INFO)
 
