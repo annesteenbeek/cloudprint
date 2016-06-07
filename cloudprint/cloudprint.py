@@ -29,8 +29,6 @@ import logging
 import logging.handlers
 import os
 import re
-import smtplib
-
 import requests
 import shutil
 import stat
@@ -39,19 +37,7 @@ import tempfile
 import time
 import uuid
 
-import ConfigParser
-from threading import Thread
-from dateutil.relativedelta import relativedelta
-
-from email.mime.text import MIMEText
-from subprocess import Popen, PIPE
-
-from tabulate import tabulate
-
-try:
-    from cloudprint import xmpp
-except Exception:
-    import xmpp
+from cloudprint import xmpp
 
 
 XMPP_SERVER_HOST = 'talk.google.com'
@@ -80,9 +66,7 @@ RETRIES = 1
 num_retries = 0
 
 LOGGER = logging.getLogger('cloudprint')
-logging.basicConfig(filename="LOGGER.log", level=logging.INFO)
-
-
+LOGGER.setLevel(logging.INFO)
 
 CLIENT_ID = ('607830223128-rqenc3ekjln2qi4m4ntudskhnsqn82gn'
              '.apps.googleusercontent.com')
@@ -293,67 +277,6 @@ class CloudPrintProxy(object):
         ).raise_for_status()
         LOGGER.debug('Updated Printer ' + name)
 
-    def email_print_log(self, printer_id, printerName, price, sender, receivers, custom):
-        #TODO store logs (maybe sqlite) and webinterface with django
-        #TODO perform logging in seperate script (no more threading and use cron)
-
-        docs = self.auth.session.post(
-            PRINT_CLOUD_URL + 'jobs',
-            {
-                'output': 'json',
-                'printerid': printer_id,
-            },
-        ).json()
-        jobDict = {}
-        for job in docs['jobs']:
-            if job["status"] == "DONE": # check if done
-                user = job['ownerId']
-                price = float(price)
-                pages = job['numberOfPages']
-                newPages = 0
-                printTime = datetime.datetime.fromtimestamp(int(job['updateTime'])/1000)
-                if  printTime > datetime.datetime.now()-relativedelta(month=+1): # time since last send day
-                    newPages = pages
-                if not user in jobDict:
-                    jobDict[user] = [pages, newPages, newPages * price]
-                else:
-                    tmpDict = jobDict[user]
-                    jobDict[user] = [tmpDict[0] + pages, tmpDict[1] + newPages,
-                                     (tmpDict[1] + newPages) * price]
-        userList = []
-        for key, value in jobDict.iteritems():
-            value.insert(0, key)
-            userList.append(value)
-        printTable = tabulate(userList, headers=["User", "Total pages", "This month", "Price"])
-        if receivers == []: # default to user emails
-            receivers = [row[0] for row in userList]
-        else:
-            receivers = receivers.split(',')
-        message = ("From: PrintServer <" + sender + " >\n"
-                    "To: <" + ", ".join(receivers) + ">\n"
-                    "Subject: Prints this month for printer '" + printerName + "'\n \n"
-                    + custom + "\n \n"
-                   "These are the prints for the month: \n \n"
-                )
-        message += printTable
-        LOGGER.info("Trying to send: \n" + message)
-        try:
-           smtpObj = smtplib.SMTP('localhost')
-           smtpObj.sendmail(sender, receivers, message)
-           LOGGER.info("Successfully sent email")
-        except Exception:
-           LOGGER.info("Error: unable to send email")
-        LOGGER.info("Writing log to file")
-        # print to file
-        filename = "logs/printlog_" + time.strftime("%d-%m-%Y") + ".txt"
-        dir = os.path.dirname(filename)
-        if not os.path.exists(dir):
-            os.makedirs(dir)
-        file = open(filename, 'w')
-        file.write(message)
-        file.close()
-
-
     def get_jobs(self, printer_id):
         docs = self.auth.session.post(
             PRINT_CLOUD_URL + 'fetch',
@@ -362,6 +285,7 @@ class CloudPrintProxy(object):
                 'printerid': printer_id,
             },
         ).json()
+
         if 'jobs' not in docs:
             return []
         else:
@@ -405,13 +329,6 @@ class PrinterProxy(object):
 
     def delete(self):
         return self.cpp.delete_printer(self.id)
-
-    def send_mail(self, price, sender, receivers, custom):
-        if receivers is None or receivers is "":
-            receivers = []
-        if custom is None:
-            custom = ""
-        self.cpp.email_print_log(self.id, self.name, price, sender, receivers, custom)
 
 
 # True if printer name matches *any* of the regular expressions in regexps
@@ -492,7 +409,7 @@ def process_job(cups_connection, cpp, printer, job):
             del options['request']
 
         options = dict((str(k), str(v)) for k, v in list(options.items()))
-        docTitle = "["+job['ownerId']+"] " + job['title'][:255]
+        docTitle = "["+job['ownerId']+"]" + job['title'][:255]
         # Cap the title length to 255, or cups will complain about invalid
         # job-name
         cups_connection.printFile(
@@ -521,65 +438,9 @@ def process_job(cups_connection, cpp, printer, job):
 
 def process_jobs(cups_connection, cpp):
     xmpp_conn = xmpp.XmppConnection(keepalive_period=KEEPALIVE)
+
     while True:
         process_jobs_once(cups_connection, cpp, xmpp_conn)
-
-def manage_mail_logs(cpp):
-    SLEEP_TIME = 10     # every x minutes, check conf
-    # if printer to track matches printer name:
-    #   if day of month to print matches, send mail
-    conf = ConfigParser.ConfigParser()
-    sendToday = False
-    while True:
-        conf.read("printers.conf")
-        printers = cpp.get_printers() # use all registered printers
-        try:
-            for printer in printers:
-                if printer.name in conf.sections():
-                    opt = ConfigSectionMap(conf, printer.name)
-                    # today is one of the days of the month
-                    if opt['days'] is None:
-                        days = 28
-                    else:
-                        days = int(opt['days'])
-                    if datetime.datetime.today().day is days:
-                        if not sendToday:
-                            printer.send_mail(opt['price'], opt['sender'], opt['receivers'], opt['custom'])
-                            sendToday = True
-                    else:
-                        sendToday = False
-        except Exception:
-            LOGGER.exception("oh snap, email exception")
-        time.sleep(SLEEP_TIME)
-
-def ConfigSectionMap(conf, section):
-    dict1 = {}
-    options = ["price", "sender", "receivers", "days", "custom"]
-    for option in options:
-        try:
-            dict1[option] = conf.get(section, option)
-            if dict1[option] == -1:
-                print("skip: %s" % option)
-            #if option is "receivers":
-                # dict1[option] = dict1[option].value.split(',')
-        except:
-            print("no option %s found" % option)
-            dict1[option] = None
-    return dict1
-
-def manage_printers(cups_connection, cpp):
-    # thread data collection and print jobs
-
-    jobThread = Thread(target=process_jobs, args=(cups_connection, cpp, ) ) # printing thread
-    jobThread.setDaemon(True)
-    jobThread.start()
-
-    mailThread = Thread(target=manage_mail_logs, args=(cpp, ) ) # email thread
-    mailThread.setDaemon(True)
-    mailThread.start()
-
-    while True: # keep threads alive
-        time.sleep(1)
 
 
 def process_jobs_once(cups_connection, cpp, xmpp_conn):
@@ -612,7 +473,7 @@ def parse_args():
         help='enable daemon mode (requires the daemon module)',
     )
     parser.add_argument(
-            '-l',
+        '-l',
         dest='logout',
         action='store_true',
         help='logout of the google account',
@@ -767,10 +628,10 @@ def main():
             timeout=5,
         )
         with daemon.DaemonContext(pidfile=pidfile):
-            manage_printers(cups_connection, cpp)
+            process_jobs(cups_connection, cpp)
 
     else:
-        manage_printers(cups_connection, cpp)
+        process_jobs(cups_connection, cpp)
 
 
 if __name__ == '__main__':
