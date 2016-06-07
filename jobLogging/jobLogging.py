@@ -10,7 +10,8 @@ import os
 conn = cups.Connection()
 printers = conn.getPrinters()
 conf = ConfigParser.ConfigParser()
-conf.read("printers.conf")
+confFile = "./printers.conf"
+conf.read(confFile)
 
 # create dict of jobs per printer, with user info per job
 def get_jobs():
@@ -189,7 +190,7 @@ def create_print_table(printerName, jobLog):
   return tabulate(userList, headers=["User", "Pages", "Price"])
 
 def write_to_file(table):
-  filename = "logs/printLog " + time.strftime("%d-%m-%Y") + ".txt"
+  filename = "./logs/printLog " + time.strftime("%d-%m-%Y") + ".txt"
   if not os.path.exists(os.path.dirname(filename)):
     try:
         os.makedirs(os.path.dirname(filename))
@@ -209,7 +210,7 @@ def main():
     # set new last date since log was sent
     curDate = time.strftime("%d/%m/%Y")
     conf.set(printerName, "lastDate", curDate)
-    with open('printers.conf', 'wb') as configfile:
+    with open(confFile, 'wb') as configfile:
         conf.write(configfile)
 
 main()

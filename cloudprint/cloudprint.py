@@ -37,8 +37,10 @@ import tempfile
 import time
 import uuid
 
-from cloudprint import xmpp
-
+try:
+    from cloudprint import xmpp
+except Exception:
+    import xmpp
 
 XMPP_SERVER_HOST = 'talk.google.com'
 XMPP_SERVER_PORT = 5223
