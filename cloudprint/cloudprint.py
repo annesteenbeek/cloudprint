@@ -67,6 +67,7 @@ KEEPALIVE = 600.0
 RETRIES = 1
 num_retries = 0
 
+logging.basicConfig(filename='./cloudprintLOGGING.log')
 LOGGER = logging.getLogger('cloudprint')
 LOGGER.setLevel(logging.INFO)
 
@@ -484,7 +485,7 @@ def parse_args():
         '-p',
         metavar='pid_file',
         dest='pidfile',
-        default='cloudprint.pid',
+        default='./cloudprint.pid',
         help='path to write the pid to (default %(default)s)',
     )
     parser.add_argument(
