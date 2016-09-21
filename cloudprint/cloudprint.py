@@ -355,6 +355,7 @@ def match_re(prn, regexps, empty=False):
 def get_printer_info(cups_connection, printer_name):
         # This is bad it should use the LanguageEncoding in the PPD
         # But a lot of utf-8 PPDs seem to say they are ISOLatin1
+        print("The printer is: " + printer_name)
         ppd_path = cups_connection.getPPD(printer_name)
         with io.open(ppd_path, encoding='utf-8') as ppd_file:
             ppd = ppd_file.read()

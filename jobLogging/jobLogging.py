@@ -31,7 +31,9 @@ def get_jobs():
   for id in completedJobs:
     data = conn.getJobAttributes(id, attributes)
     printerURI = data["printer-uri"]
-    if printerURI in printerNames:
+    printerName = printerURI.split('/')
+    printerName = printerName[-1]
+    if printerName in printers:
       jobname = data['job-name']
       username = re.search('\[([^\]]*)\]', jobname)
       if username:
@@ -45,9 +47,7 @@ def get_jobs():
         'pages': data["job-media-sheets-completed"],
         'date': data["time-at-processing"]
       }
-      jobDict[printerNames[printerURI]][id] = job
-
-  # print(json.dumps(jobDict, indent = 4))
+      jobDict[printerName][id] = job
   return jobDict
 
 # create dict of users with total jobs per printer
